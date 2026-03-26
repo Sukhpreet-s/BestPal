@@ -135,6 +135,20 @@ func (db *DB) initTables() error {
 
 	CREATE INDEX IF NOT EXISTS idx_intro_feed_posts_user_id ON intro_feed_posts(user_id);
 	CREATE INDEX IF NOT EXISTS idx_intro_feed_posts_posted_at ON intro_feed_posts(posted_at);
+
+	CREATE TABLE IF NOT EXISTS introduction_threads (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		thread_id TEXT NOT NULL UNIQUE,
+		user_id TEXT NOT NULL,
+		username TEXT,
+		thread_title TEXT,
+		first_message_content TEXT,
+		created_at DATETIME,
+		fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_introduction_threads_user_id ON introduction_threads(user_id);
+	CREATE INDEX IF NOT EXISTS idx_introduction_threads_fetched_at ON introduction_threads(fetched_at);
 	`
 
 	_, err := db.conn.Exec(query)
@@ -594,4 +608,49 @@ func (db *DB) GetRecentIntroFeedPosts(since time.Time) ([]IntroFeedPost, error) 
 		return nil, fmt.Errorf("failed to iterate intro feed posts: %w", err)
 	}
 	return posts, nil
+}
+
+// IntroductionThread stores full thread content for analysis
+type IntroductionThread struct {
+	ID                  int       `json:"id"`
+	ThreadID            string    `json:"thread_id"`
+	UserID              string    `json:"user_id"`
+	Username            string    `json:"username"`
+	ThreadTitle         string    `json:"thread_title"`
+	FirstMessageContent string    `json:"first_message_content"`
+	CreatedAt           time.Time `json:"created_at"`
+	FetchedAt           time.Time `json:"fetched_at"`
+}
+
+// SaveIntroductionThread stores a full introduction thread
+func (db *DB) SaveIntroductionThread(thread *IntroductionThread) error {
+	query := `
+	INSERT INTO introduction_threads (thread_id, user_id, username, thread_title, first_message_content, created_at)
+	VALUES (?, ?, ?, ?, ?, ?)
+	ON CONFLICT(thread_id) DO UPDATE SET
+		first_message_content = excluded.first_message_content,
+		fetched_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.conn.Exec(query,
+		thread.ThreadID,
+		thread.UserID,
+		thread.Username,
+		thread.ThreadTitle,
+		thread.FirstMessageContent,
+		thread.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to save introduction thread: %w", err)
+	}
+	return nil
+}
+
+// GetIntroductionThreadCount returns total number of stored threads
+func (db *DB) GetIntroductionThreadCount() (int, error) {
+	var count int
+	err := db.conn.QueryRow("SELECT COUNT(*) FROM introduction_threads").Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count threads: %w", err)
+	}
+	return count, nil
 }
