@@ -127,8 +127,6 @@ func (m *Module) fetchAndStoreThreads(s *discordgo.Session, guildID, forumID str
 	successCount := 0
 	errorCount := 0
 
-	successCount := 0
-	errorCount := 0
 	for _, meta := range threads {
 		// Rate limit at the start of each iteration
 		time.Sleep(100 * time.Millisecond)
