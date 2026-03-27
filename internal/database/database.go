@@ -628,6 +628,9 @@ func (db *DB) SaveIntroductionThread(thread *IntroductionThread) error {
 	INSERT INTO introduction_threads (thread_id, user_id, username, thread_title, first_message_content, created_at)
 	VALUES (?, ?, ?, ?, ?, ?)
 	ON CONFLICT(thread_id) DO UPDATE SET
+		user_id = excluded.user_id,
+		username = excluded.username,
+		thread_title = excluded.thread_title,
 		first_message_content = excluded.first_message_content,
 		fetched_at = CURRENT_TIMESTAMP
 	`
