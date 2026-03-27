@@ -143,6 +143,7 @@ func (db *DB) initTables() error {
 		username TEXT,
 		thread_title TEXT,
 		first_message_content TEXT,
+		applied_tags TEXT DEFAULT '[]',
 		created_at DATETIME,
 		fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
@@ -618,6 +619,7 @@ type IntroductionThread struct {
 	Username            string    `json:"username"`
 	ThreadTitle         string    `json:"thread_title"`
 	FirstMessageContent string    `json:"first_message_content"`
+	AppliedTags         string    `json:"applied_tags"` // JSON array of tag IDs
 	CreatedAt           time.Time `json:"created_at"`
 	FetchedAt           time.Time `json:"fetched_at"`
 }
@@ -625,13 +627,14 @@ type IntroductionThread struct {
 // SaveIntroductionThread stores a full introduction thread
 func (db *DB) SaveIntroductionThread(thread *IntroductionThread) error {
 	query := `
-	INSERT INTO introduction_threads (thread_id, user_id, username, thread_title, first_message_content, created_at)
-	VALUES (?, ?, ?, ?, ?, ?)
+	INSERT INTO introduction_threads (thread_id, user_id, username, thread_title, first_message_content, applied_tags, created_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(thread_id) DO UPDATE SET
 		user_id = excluded.user_id,
 		username = excluded.username,
 		thread_title = excluded.thread_title,
 		first_message_content = excluded.first_message_content,
+		applied_tags = excluded.applied_tags,
 		fetched_at = CURRENT_TIMESTAMP
 	`
 	_, err := db.conn.Exec(query,
@@ -640,6 +643,7 @@ func (db *DB) SaveIntroductionThread(thread *IntroductionThread) error {
 		thread.Username,
 		thread.ThreadTitle,
 		thread.FirstMessageContent,
+		thread.AppliedTags,
 		thread.CreatedAt,
 	)
 	if err != nil {

@@ -1,6 +1,7 @@
 package fetchintros
 
 import (
+	"encoding/json"
 	"fmt"
 	"gamerpal/internal/commands/types"
 	"gamerpal/internal/database"
@@ -148,6 +149,17 @@ func (m *Module) fetchAndStoreThreads(s *discordgo.Session, guildID, forumID str
 			username = firstMessage.Author.Username
 		}
 
+		// Fetch thread to get applied tags
+		appliedTagsJSON := "[]"
+		threadChannel, err := s.Channel(meta.ID)
+		if err != nil {
+			m.deps.Config.Logger.Errorf("Failed to fetch thread channel %s for tags: %v", meta.ID, err)
+			// Continue without tags - not a fatal error
+		} else if threadChannel != nil && len(threadChannel.AppliedTags) > 0 {
+			tagsBytes, _ := json.Marshal(threadChannel.AppliedTags)
+			appliedTagsJSON = string(tagsBytes)
+		}
+
 		// Create thread record
 		thread := &database.IntroductionThread{
 			ThreadID:            meta.ID,
@@ -155,6 +167,7 @@ func (m *Module) fetchAndStoreThreads(s *discordgo.Session, guildID, forumID str
 			Username:            username,
 			ThreadTitle:         meta.Name,
 			FirstMessageContent: firstMessage.Content,
+			AppliedTags:         appliedTagsJSON,
 			CreatedAt:           meta.CreatedAt,
 		}
 
