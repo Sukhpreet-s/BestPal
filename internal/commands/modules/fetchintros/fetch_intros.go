@@ -95,15 +95,8 @@ func (m *Module) fetchAndStoreThreads(s *discordgo.Session, guildID, forumID str
 	// Fetch full content for each thread
 	successCount := 0
 	errorCount := 0
-	skippedCount := 0
 
 	for _, meta := range threads {
-		// Skip archived threads older than 6 months (optional filter)
-		if meta.Archived && time.Since(meta.CreatedAt) > 180*24*time.Hour {
-			skippedCount++
-			continue
-		}
-
 		// Fetch the original message that created the thread
 		// In Discord forum threads, the thread ID is the same as the first message ID
 		firstMessage, err := s.ChannelMessage(meta.ID, meta.ID)
@@ -149,9 +142,8 @@ func (m *Module) fetchAndStoreThreads(s *discordgo.Session, guildID, forumID str
 			"📊 **Summary:**\n"+
 			"- Total threads found: **%d**\n"+
 			"- Successfully stored: **%d**\n"+
-			"- Errors: **%d**\n"+
-			"- Skipped (old/archived): **%d**",
-		len(threads), successCount, errorCount, skippedCount,
+			"- Errors: **%d**",
+		len(threads), successCount, errorCount,
 	)
 
 	return summary, nil
