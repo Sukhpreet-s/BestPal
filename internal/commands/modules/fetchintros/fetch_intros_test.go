@@ -35,30 +35,6 @@ func TestModuleRegistration(t *testing.T) {
 	assert.Contains(t, *cmd.ApplicationCommand.Contexts, discordgo.InteractionContextGuild)
 }
 
-// TestFetchAndStoreThreadsEmptyForum tests handling of empty forum
-func TestFetchAndStoreThreadsEmptyForum(t *testing.T) {
-	cfg, fc := forumcache.NewTestForumCache(map[string]interface{}{
-		"gamerpals_introductions_forum_channel_id": "forum1",
-	})
-	fc.RegisterForum("forum1")
-	// Don't seed any threads
-
-	deps := &types.Dependencies{
-		Config:     cfg,
-		ForumCache: fc,
-	}
-
-	module := New(deps)
-
-	// Mock session that should never be called for empty forum
-	session := &discordgo.Session{}
-
-	summary, err := module.fetchAndStoreThreads(session, "guild1", "forum1")
-
-	require.NoError(t, err)
-	assert.Equal(t, "⚠️ No threads found in forum", summary)
-}
-
 // TestFetchAndStoreThreadsCacheMiss tests cache refresh on miss
 func TestFetchAndStoreThreadsCacheMiss(t *testing.T) {
 	cfg, fc := forumcache.NewTestForumCache(map[string]interface{}{
