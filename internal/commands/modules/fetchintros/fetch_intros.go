@@ -53,8 +53,8 @@ func (m *Module) handleFetchIntros(s *discordgo.Session, i *discordgo.Interactio
 	}
 
 	// Get forum channel ID from config
-	forumChannelID := m.deps.Config.GetGamerPalsIntroductionsForumChannelID()
-	if forumChannelID == "" {
+	forumID := m.deps.Config.GetGamerPalsIntroductionsForumChannelID()
+	if forumID == "" {
 		m.editResponse(s, i, "❌ Error: Forum channel ID not configured")
 		return
 	}
@@ -63,7 +63,7 @@ func (m *Module) handleFetchIntros(s *discordgo.Session, i *discordgo.Interactio
 	guildID := i.GuildID
 
 	// Fetch and store threads
-	summary, err := m.fetchAndStoreThreads(s, guildID, forumChannelID)
+	summary, err := m.fetchAndStoreThreads(s, guildID, forumID)
 	if err != nil {
 		m.editResponse(s, i, fmt.Sprintf("❌ Error fetching threads: %v", err))
 		return
@@ -73,16 +73,16 @@ func (m *Module) handleFetchIntros(s *discordgo.Session, i *discordgo.Interactio
 }
 
 // fetchAndStoreThreads fetches threads from forum and stores in database
-func (m *Module) fetchAndStoreThreads(s *discordgo.Session, guildID, forumChannelID string) (string, error) {
+func (m *Module) fetchAndStoreThreads(s *discordgo.Session, guildID, forumID string) (string, error) {
 	// Use ForumCache to get all threads
-	threads, ok := m.deps.ForumCache.ListThreads(forumChannelID)
+	threads, ok := m.deps.ForumCache.ListThreads(forumID)
 	if !ok || threads == nil {
 		// Cache miss - refresh forum
-		err := m.deps.ForumCache.RefreshForum(guildID, forumChannelID)
+		err := m.deps.ForumCache.RefreshForum(guildID, forumID)
 		if err != nil {
 			return "", fmt.Errorf("failed to refresh forum cache: %w", err)
 		}
-		threads, ok = m.deps.ForumCache.ListThreads(forumChannelID)
+		threads, ok = m.deps.ForumCache.ListThreads(forumID)
 		if !ok {
 			return "", fmt.Errorf("forum cache still empty after refresh")
 		}
@@ -104,21 +104,14 @@ func (m *Module) fetchAndStoreThreads(s *discordgo.Session, guildID, forumChanne
 			continue
 		}
 
-		// Fetch first message from thread (this is the introduction post)
-		messages, err := s.ChannelMessages(meta.ID, 1, "", "", "")
+		// Fetch the original message that created the thread
+		// In Discord forum threads, the thread ID is the same as the first message ID
+		firstMessage, err := s.ChannelMessage(meta.ID, meta.ID)
 		if err != nil {
-			log.Printf("Failed to fetch messages for thread %s: %v", meta.ID, err)
+			log.Printf("Failed to fetch message for thread %s: %v", meta.ID, err)
 			errorCount++
 			continue
 		}
-
-		if len(messages) == 0 {
-			log.Printf("No messages found in thread %s", meta.ID)
-			errorCount++
-			continue
-		}
-
-		firstMessage := messages[0]
 
 		// Get username
 		username := "Unknown"
