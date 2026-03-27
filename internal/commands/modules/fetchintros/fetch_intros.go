@@ -63,8 +63,6 @@ func (m *Module) handleFetchIntros(s *discordgo.Session, i *discordgo.Interactio
 		return
 	}
 
-	// Immediately update the deferred response with a status message
-	m.editResponse(s, i, "Fetching introduction posts... This may take a minute.")
 	// Get forum channel ID from config
 	forumID := m.deps.Config.GetGamerPalsIntroductionsForumChannelID()
 	if forumID == "" {
@@ -112,26 +110,25 @@ func (m *Module) handleFetchIntros(s *discordgo.Session, i *discordgo.Interactio
 func (m *Module) fetchAndStoreThreads(s *discordgo.Session, guildID, forumID string) (string, error) {
 	// Use ForumCache to get all threads
 	threads, ok := m.deps.ForumCache.ListThreads(forumID)
-	if !ok || threads == nil {
-		// Cache miss - refresh forum
+	if !ok || len(threads) == 0 {
+		// Cache miss or empty cache - refresh forum to ensure we see all threads
 		err := m.deps.ForumCache.RefreshForum(guildID, forumID)
 		if err != nil {
 			return "", fmt.Errorf("failed to refresh forum cache: %w", err)
 		}
 		threads, ok = m.deps.ForumCache.ListThreads(forumID)
-		if !ok {
-			return "", fmt.Errorf("forum cache still empty after refresh")
+		if !ok || len(threads) == 0 {
+			// After a refresh, treat an empty result as "no threads found"
+			return "⚠️ No threads found in forum", nil
 		}
-	}
-
-	if len(threads) == 0 {
-		return "⚠️ No threads found in forum", nil
 	}
 
 	// Fetch full content for each thread
 	successCount := 0
 	errorCount := 0
 
+	successCount := 0
+	errorCount := 0
 	for _, meta := range threads {
 		// Rate limit at the start of each iteration
 		time.Sleep(100 * time.Millisecond)
