@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"gamerpal/internal/commands/types"
 	"gamerpal/internal/database"
-	"log"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -24,10 +23,14 @@ func New(deps *types.Dependencies) *Module {
 
 // Register adds the fetch-intros command
 func (m *Module) Register(cmds map[string]*types.Command, deps *types.Dependencies) {
+	var adminPerms int64 = discordgo.PermissionAdministrator
+
 	cmds["fetch-intros"] = &types.Command{
 		ApplicationCommand: &discordgo.ApplicationCommand{
-			Name:        "fetch-intros",
-			Description: "Fetch all introduction posts from the forum and store in database",
+			Name:                     "fetch-intros",
+			Description:              "Fetch all introduction posts from the forum and store in database (Admin only)",
+			DefaultMemberPermissions: &adminPerms,
+			Contexts:                 &[]discordgo.InteractionContextType{discordgo.InteractionContextGuild},
 		},
 		HandlerFunc: m.handleFetchIntros,
 	}
@@ -46,7 +49,16 @@ func (m *Module) handleFetchIntros(s *discordgo.Session, i *discordgo.Interactio
 		Data: &discordgo.InteractionResponseData{},
 	})
 	if err != nil {
-		log.Printf("Error deferring response: %v", err)
+		m.deps.Config.Logger.Errorf("Error deferring response: %v", err)
+		return
+	}
+
+	// Immediately update the deferred response with a status message
+	m.editResponse(s, i, "Fetching introduction posts... This may take a minute.")
+
+	// Check if database is available
+	if m.deps.DB == nil {
+		m.editResponse(s, i, "❌ Error: Database is not available")
 		return
 	}
 
@@ -61,6 +73,10 @@ func (m *Module) handleFetchIntros(s *discordgo.Session, i *discordgo.Interactio
 
 	// Get guild ID from interaction
 	guildID := i.GuildID
+	if guildID == "" {
+		m.editResponse(s, i, "❌ Error: This command can only be used in a guild")
+		return
+	}
 
 	// Fetch and store threads
 	summary, err := m.fetchAndStoreThreads(s, guildID, forumID)
@@ -97,11 +113,14 @@ func (m *Module) fetchAndStoreThreads(s *discordgo.Session, guildID, forumID str
 	errorCount := 0
 
 	for _, meta := range threads {
+		// Rate limit at the start of each iteration
+		time.Sleep(100 * time.Millisecond)
+
 		// Fetch the original message that created the thread
 		// In Discord forum threads, the thread ID is the same as the first message ID
 		firstMessage, err := s.ChannelMessage(meta.ID, meta.ID)
 		if err != nil {
-			log.Printf("Failed to fetch message for thread %s: %v", meta.ID, err)
+			m.deps.Config.Logger.Errorf("Failed to fetch message for thread %s: %v", meta.ID, err)
 			errorCount++
 			continue
 		}
@@ -125,15 +144,12 @@ func (m *Module) fetchAndStoreThreads(s *discordgo.Session, guildID, forumID str
 		// Save to database
 		err = m.deps.DB.SaveIntroductionThread(thread)
 		if err != nil {
-			log.Printf("Failed to save thread %s: %v", meta.ID, err)
+			m.deps.Config.Logger.Errorf("Failed to save thread %s: %v", meta.ID, err)
 			errorCount++
 			continue
 		}
 
 		successCount++
-
-		// Rate limit: Sleep 100ms between requests to avoid Discord API limits
-		time.Sleep(100 * time.Millisecond)
 	}
 
 	// Build summary message
@@ -155,6 +171,6 @@ func (m *Module) editResponse(s *discordgo.Session, i *discordgo.InteractionCrea
 		Content: &content,
 	})
 	if err != nil {
-		log.Printf("Error editing response: %v", err)
+		m.deps.Config.Logger.Errorf("Error editing response: %v", err)
 	}
 }
