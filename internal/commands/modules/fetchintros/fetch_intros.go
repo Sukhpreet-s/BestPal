@@ -47,7 +47,9 @@ func (m *Module) handleFetchIntros(s *discordgo.Session, i *discordgo.Interactio
 	// Defer response (operation will take time)
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{},
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
 	})
 	if err != nil {
 		m.deps.Config.Logger.Errorf("Error deferring response: %v", err)
