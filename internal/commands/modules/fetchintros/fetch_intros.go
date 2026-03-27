@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gamerpal/internal/commands/types"
 	"gamerpal/internal/database"
+	"os"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -85,7 +86,26 @@ func (m *Module) handleFetchIntros(s *discordgo.Session, i *discordgo.Interactio
 		return
 	}
 
-	m.editResponse(s, i, summary)
+	// Attach the database file
+	dbPath := m.deps.Config.GetDatabasePath()
+	dbFile, err := os.Open(dbPath)
+	if err != nil {
+		m.deps.Config.Logger.Errorf("Failed to open database file: %v", err)
+		m.editResponse(s, i, summary+"\n\n⚠️ Note: Could not attach database file")
+		return
+	}
+	defer dbFile.Close()
+
+	files := []*discordgo.File{
+		{
+			Name:        "bestpal.db",
+			ContentType: "application/x-sqlite3",
+			Reader:      dbFile,
+		},
+	}
+
+	summary += "\n\n📎 Database file attached (bestpal.db)"
+	m.editResponseWithFiles(s, i, summary, files)
 }
 
 // fetchAndStoreThreads fetches threads from forum and stores in database
@@ -172,5 +192,16 @@ func (m *Module) editResponse(s *discordgo.Session, i *discordgo.InteractionCrea
 	})
 	if err != nil {
 		m.deps.Config.Logger.Errorf("Error editing response: %v", err)
+	}
+}
+
+// editResponseWithFiles helper to update deferred response with file attachments
+func (m *Module) editResponseWithFiles(s *discordgo.Session, i *discordgo.InteractionCreate, content string, files []*discordgo.File) {
+	_, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &content,
+		Files:   files,
+	})
+	if err != nil {
+		m.deps.Config.Logger.Errorf("Error editing response with files: %v", err)
 	}
 }
