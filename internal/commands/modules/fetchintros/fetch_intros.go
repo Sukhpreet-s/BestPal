@@ -43,15 +43,15 @@ func (m *Module) handleFetchIntros(s *discordgo.Session, i *discordgo.Interactio
 	// Defer response (operation will take time)
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Fetching introduction posts... This may take a minute.",
-		},
+		Data: &discordgo.InteractionResponseData{},
 	})
 	if err != nil {
 		log.Printf("Error deferring response: %v", err)
 		return
 	}
 
+	// Immediately update the deferred response with a status message
+	m.editResponse(s, i, "Fetching introduction posts... This may take a minute.")
 	// Get forum channel ID from config
 	forumID := m.deps.Config.GetGamerPalsIntroductionsForumChannelID()
 	if forumID == "" {
