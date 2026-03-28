@@ -46,7 +46,7 @@ func (m *Module) Service() types.ModuleService {
 
 // handleFetchIntros handles the /fetch-intros command
 func (m *Module) handleFetchIntros(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if !utils.IsSuperAdmin(i.User.ID, m.config) {
+	if !utils.IsSuperAdmin(i.User.ID, m.deps.Config) {
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
