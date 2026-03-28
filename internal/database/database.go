@@ -652,12 +652,3 @@ func (db *DB) SaveIntroductionThread(thread *IntroductionThread) error {
 	return nil
 }
 
-// GetIntroductionThreadCount returns total number of stored threads
-func (db *DB) GetIntroductionThreadCount() (int, error) {
-	var count int
-	err := db.conn.QueryRow("SELECT COUNT(*) FROM introduction_threads").Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("failed to count threads: %w", err)
-	}
-	return count, nil
-}
