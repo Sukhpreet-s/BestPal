@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gamerpal/internal/commands/types"
 	"gamerpal/internal/database"
+	"gamerpal/internal/utils"
 	"os"
 	"time"
 
@@ -45,6 +46,17 @@ func (m *Module) Service() types.ModuleService {
 
 // handleFetchIntros handles the /fetch-intros command
 func (m *Module) handleFetchIntros(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !utils.IsSuperAdmin(i.User.ID, m.config) {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "❌ You do not have permission to use this command.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
 	// Defer response (operation will take time)
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
